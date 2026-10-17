@@ -57,6 +57,21 @@ jobs:
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           else
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            # Never let a stale or accidentally downgraded version move latest backwards.
+            existing="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 \
+              --exclude-drafts --exclude-pre-releases --json tagName --jq '.[].tagName')"
+            VERSION="$version" EXISTING="$existing" node - <<'NODE'
+          const current = process.env.VERSION.split(".").map(Number);
+          const newer = (old) => current.some((value, i) =>
+            value > old[i] && current.slice(0, i).every((v, j) => v === old[j]));
+          for (const tag of (process.env.EXISTING || "").split("\n")) {
+            if (!/^v\d+\.\d+\.\d+$/.test(tag)) continue;
+            if (!newer(tag.slice(1).split(".").map(Number))) {
+              console.error("Stable version must exceed existing release " + tag);
+              process.exit(1);
+            }
+          }
+          NODE
           fi
 
       - name: Install dependencies without lifecycle scripts
@@ -89,10 +104,36 @@ jobs:
         run: |
           set -euo pipefail
           options=()
-          if [[ "$PRERELEASE" == "true" ]]; then options+=(--prerelease); fi
+          if [[ "$PRERELEASE" == "true" ]]; then
+            options+=(--prerelease --latest=false)
+          else
+            options+=(--latest)
+          fi
           gh release create "$TAG" "$ARCHIVE" "$ARCHIVE.sha256" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "$TAG" \
             --generate-notes \
             "${options[@]}"
+
+      - name: Point moving latest tag at the published stable release
+        if: steps.version.outputs.prerelease == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # The published immutable version tag is authoritative.
+          release_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')"
+          test "$release_sha" = "$GITHUB_SHA"
+          # "latest" is intentionally movable; do not give it a GitHub Release.
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/latest" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/latest" \
+              -f sha="$release_sha" -F force=true >/dev/null
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/latest" -f sha="$release_sha" >/dev/null
+          fi
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/latest" --jq '.object.sha')"
+          test "$actual" = "$release_sha"
+          echo "latest -> $TAG ($release_sha)"

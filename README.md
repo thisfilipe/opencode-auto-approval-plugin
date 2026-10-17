@@ -6,15 +6,15 @@
 
 ### Install the maintained fork from GitHub (OpenCode 2.x)
 
-OpenCode v2 supports npm-compatible Git package references directly: no npm
-registry publication is needed. Pin to a **published GitHub Release tag**
-instead of tracking a moving branch:
+OpenCode v2 supports npm-compatible Git package references directly; npm
+registry publication is not needed. Use `#latest` to follow the most recently
+published **stable** release (not development commits or pre-releases):
 
 ```jsonc
 {
   "plugins": [
     {
-      "package": "github:thisfilipe/opencode-auto-approval-plugin#v0.9.0-fork.1",
+      "package": "github:thisfilipe/opencode-auto-approval-plugin#latest",
       "options": {
         "mode": "all-tools",
         "conversation": { "enabled": true, "includeAssistant": true },
@@ -25,17 +25,23 @@ instead of tracking a moving branch:
 }
 ```
 
-**Do not use this tag until the matching GitHub Release has been created.**
+**The `latest` Git tag is created by the first stable release**; it does
+not exist until that release is published. For a reproducible installation, use
+`#v0.9.1` instead, once that release exists. Both references differ from the
+GitHub Releases "Latest" badge: `#latest` is an intentionally movable Git tag.
+
 Keep your existing `options` unchanged when replacing a local plugin path.
 Restart the OpenCode service and verify the loaded plugin with
 `opencode plugin list`. The Git package is built during installation using
 the `prepare` script; the initial download may be relatively large. Node.js
 22+ and the Git installation prerequisites must be available.
 
-To install a different release, change only the version suffix after `#`.
-See [Releases](https://github.com/thisfilipe/opencode-auto-approval-plugin/releases)
-for published versions. Release automation and main-branch protection setup are
-documented in [FORK.md](FORK.md).
+**A moving tag is not an automatic-update guarantee.** OpenCode's plugin
+installer and Git package caching may keep an already installed revision;
+check/reinstall when a new release is published. For a locked-down or
+reproducible environment, prefer an immutable version tag. See
+[Releases](https://github.com/thisfilipe/opencode-auto-approval-plugin/releases)
+and [FORK.md](FORK.md) for the release policy.
 
 An [OpenCode](https://opencode.ai/) plugin that sends tool operations to a read-only AI reviewer
 before automatically approving them.
