@@ -18,12 +18,13 @@ This fork includes:
 pnpm install --frozen-lockfile --ignore-scripts
 pnpm run setup:dev # optional: install developer Git hooks and generate rulesync files
 pnpm cicheck
-pnpm build
+pnpm compile
 pnpm pack
 ```
 
 The root `index.js` re-exports the built `dist/index.js` for local OpenCode
-plugin-directory resolution. Local installs must run `pnpm build` first.
+plugin-directory resolution. Local development installs must run
+`pnpm compile` first.
 
 ## Install directly from GitHub
 
@@ -51,10 +52,21 @@ versioned tag) instead. Preserve your review options when switching sources.
 Git package caching can retain old revisions; a tag move does **not**
 guarantee unattended plugin updates.
 
-Git installations execute the `prepare` script to compile `dist`; therefore,
-the initial installation downloads build-time dependencies. There is **no npm
-registry publishing** in this fork. For offline usage, continue loading a
-previously built local directory.
+**v0.9.1 and earlier should not be installed directly from GitHub.**
+In OpenCode 2.0.32, the npm Git dependency preparation step triggered by
+`prepare` failed with `NpmInstallFailedError: git dep preparation failed`.
+The npm documentation also treats a `build` lifecycle script as a trigger
+for Git dependency preparation. Starting with v0.9.2, the release workflow
+creates a separate **release-only Git commit** containing compiled `dist/`
+artifacts and tags that commit. It removes preparation/build lifecycle
+scripts from the package manifest, so no compilation is required when
+installing from GitHub. The `main` branch remains source-only.
+
+The versioned release tag points to a build commit whose direct parent is
+the verified `main` commit. The moving `latest` tag follows the same build
+commit; **releases must never point `latest` at an uncompiled `main` commit**.
+No npm registry publishing is required. For offline usage, continue loading
+a previously compiled local directory.
 
 ## Versioning and release policy
 
@@ -79,14 +91,17 @@ tags (`v0.9.1`, etc.) remain immutable and are never re-used or overwritten.
 3. Merge after CI passes and run
    **Actions > GitHub Release > Run workflow** on branch `main`.
 4. The workflow verifies version uniqueness and stable version order, runs
-   `pnpm cicheck`, builds the ESM/CJS bundles, packs the tarball and uploads
-   it plus a SHA-256 checksum.
-5. A stable release is marked GitHub Releases **Latest**, then the movable
-   `refs/tags/latest` is created or updated to the release commit. A
+   `pnpm cicheck`, compiles ESM/CJS bundles and packs an archive with SHA-256.
+5. After all checks pass, it creates a release-only child commit containing
+   the precompiled `dist/` files and pushes the immutable `vX.Y.Z` tag to
+   that commit, **without changing the `main` branch**.
+6. It publishes the GitHub Release and artifacts for that tag. A stable
+   release is marked GitHub Releases **Latest**, then the movable
+   `refs/tags/latest` is updated to the same release-only commit. A
    pre-release neither gets the badge nor moves the tag.
-6. Validate the GitHub Release, version tag and `latest` Git reference. Run a
-   clean OpenCode installation pinned to `#vX.Y.Z` before recommending the
-   moving alias.
+7. Confirm that the tag contains `dist/index.js`, the GitHub Release exists,
+   and `latest` matches the version tag. Run a clean OpenCode Git plugin
+   installation before removing local backups.
 
 The workflow needs `contents: write` to publish releases and move the tag.
 No npm registry or publishing token is involved. A Git tag ruleset must
