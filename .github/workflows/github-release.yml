@@ -80,8 +80,8 @@ jobs:
       - name: Run full quality and security checks
         run: pnpm cicheck
 
-      - name: Build
-        run: pnpm build
+      - name: Compile prebuilt Git package
+        run: pnpm compile
 
       - name: Pack and verify
         id: pack
@@ -94,6 +94,41 @@ jobs:
           tar -tzf "$archive" | grep -Fx 'package/dist/index.cjs'
           sha256sum "$archive" > "$archive.sha256"
           echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Tag an installable source snapshot with prebuilt dist
+        id: snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # Git package installations must NOT need npm's git-dependency
+          # preparation, which fails in some OpenCode 2.x environments.
+          # Keep dist out of main, but commit it in every immutable release tag.
+          node - <<'NODE'
+          const scripts = require("./package.json").scripts || {};
+          for (const name of ["build", "prepare", "prepack", "preinstall", "install", "postinstall"]) {
+            if (Object.hasOwn(scripts, name)) {
+              console.error("Git dependency triggers npm preparation: " + name);
+              process.exit(1);
+            }
+          }
+          NODE
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f dist/
+          git diff --cached --quiet && {
+            echo "No prebuilt distribution was staged." >&2
+            exit 1
+          }
+          git commit -m "build(release): include prebuilt package for $TAG"
+          test "$(git rev-parse HEAD^)" = "$GITHUB_SHA"
+          snapshot_sha="$(git rev-parse HEAD)"
+          echo "sha=$snapshot_sha" >> "$GITHUB_OUTPUT"
+          git tag "$TAG"
+          # Credentials are configured only after checks and compilation finish.
+          gh auth setup-git
+          git push origin "refs/tags/$TAG"
 
       - name: Publish GitHub Release
         env:
@@ -111,7 +146,6 @@ jobs:
           fi
           gh release create "$TAG" "$ARCHIVE" "$ARCHIVE.sha256" \
             --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
             --title "$TAG" \
             --generate-notes \
             "${options[@]}"
@@ -121,11 +155,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
+          EXPECTED_RELEASE_SHA: ${{ steps.snapshot.outputs.sha }}
         run: |
           set -euo pipefail
           # The published immutable version tag is authoritative.
           release_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')"
-          test "$release_sha" = "$GITHUB_SHA"
+          test "$release_sha" = "$EXPECTED_RELEASE_SHA"
           # "latest" is intentionally movable; do not give it a GitHub Release.
           if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/latest" >/dev/null 2>&1; then
             gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/latest" \

@@ -38,8 +38,20 @@ jobs:
       - name: Run cicheck
         run: pnpm cicheck
 
-      - name: Build
-        run: pnpm build
+      - name: Prevent Git dependency preparation triggers
+        run: |
+          node - <<'NODE'
+          const scripts = require("./package.json").scripts || {};
+          for (const name of ["build", "prepare", "prepack", "preinstall", "install", "postinstall"]) {
+            if (Object.hasOwn(scripts, name)) {
+              console.error("Git installations must not invoke npm preparation: " + name);
+              process.exit(1);
+            }
+          }
+          NODE
+
+      - name: Compile
+        run: pnpm compile
 
       - name: Check no uncommitted changes after build
         run: |
