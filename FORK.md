@@ -64,7 +64,7 @@ installing from GitHub. The `main` branch remains source-only.
 
 The versioned release tag points to a build commit whose direct parent is
 the verified `main` commit. The moving `latest` tag follows the same build
-commit; **releases must never point `latest` at an uncompiled `main` commit**.
+commit; **releases must never point `latest` at a source-only `main` commit**.
 No npm registry publishing is required. For offline usage, continue loading
 a previously compiled local directory.
 
