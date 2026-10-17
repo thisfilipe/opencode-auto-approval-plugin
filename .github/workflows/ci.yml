@@ -38,8 +38,8 @@ jobs:
       - name: Run cicheck
         run: pnpm cicheck
 
-      - name: Build
-        run: pnpm build
+      - name: Compile
+        run: pnpm compile
 
       - name: Check no uncommitted changes after build
         run: |
