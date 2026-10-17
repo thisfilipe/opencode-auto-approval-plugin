@@ -25,16 +25,17 @@ published **stable** release (not development commits or pre-releases):
 }
 ```
 
-**The `latest` Git tag is created by the first stable release**; it does
-not exist until that release is published. For a reproducible installation, use
-`#v0.9.1` instead, once that release exists. Both references differ from the
-GitHub Releases "Latest" badge: `#latest` is an intentionally movable Git tag.
+For a reproducible installation, use `#v0.9.2` instead (once released).
+Both references differ from the GitHub Releases "Latest" badge:
+`#latest` is an intentionally movable Git tag.
 
 Keep your existing `options` unchanged when replacing a local plugin path.
 Restart the OpenCode service and verify the loaded plugin with
-`opencode plugin list`. The Git package is built during installation using
-the `prepare` script; the initial download may be relatively large. Node.js
-22+ and the Git installation prerequisites must be available.
+`opencode plugin list`. **Since v0.9.2, each versioned release tag contains
+precompiled `dist/` files**, and does not invoke npm's Git dependency
+preparation or download development build tools during installation. The
+release artifacts are generated in CI; the `main` branch intentionally
+does not commit compiled files.
 
 **A moving tag is not an automatic-update guarantee.** OpenCode's plugin
 installer and Git package caching may keep an already installed revision;
