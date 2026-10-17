@@ -27,14 +27,15 @@ plugin-directory resolution. Local installs must run `pnpm build` first.
 
 ## Install directly from GitHub
 
-OpenCode v2 accepts a Git repository as an npm-compatible plugin source. Use a
-**tagged release** instead of the moving `main` branch:
+OpenCode v2 accepts a Git repository as an npm-compatible plugin source.
+To follow **published stable releases** without editing the version each time,
+use the mutable `latest` Git tag, never the moving `main` branch:
 
 ```jsonc
 {
   "plugins": [
     {
-      "package": "github:thisfilipe/opencode-auto-approval-plugin#v0.9.0-fork.1",
+      "package": "github:thisfilipe/opencode-auto-approval-plugin#latest",
       "options": {
         "mode": "all-tools",
         "conversation": { "enabled": true, "includeAssistant": true },
@@ -44,33 +45,52 @@ OpenCode v2 accepts a Git repository as an npm-compatible plugin source. Use a
 }
 ```
 
-The tag must exist before you use this example. Preserve your current review
-options when switching to the GitHub source.
+The `latest` tag first appears with the initial stable `v0.9.1` GitHub
+Release. For reproducibility, specify `#v0.9.1` (or a newer immutable
+versioned tag) instead. Preserve your review options when switching sources.
+Git package caching can retain old revisions; a tag move does **not**
+guarantee unattended plugin updates.
 
 Git installations execute the `prepare` script to compile `dist`; therefore,
 the initial installation downloads build-time dependencies. There is **no npm
 registry publishing** in this fork. For offline usage, continue loading a
 previously built local directory.
 
-## Release policy
+## Versioning and release policy
 
-1. Create a feature branch, open a PR into `main` and wait for the required
-   `Code Quality & Tests` GitHub check to pass.
-2. Update `package.json` to a new version through a PR (and update installation
-   examples as appropriate). Never reuse an existing release version.
-3. Merge to `main` after CI passes. Only merged commits are eligible.
-4. Open **Actions > GitHub Release > Run workflow**, with branch `main`.
-5. The workflow checks that `v<package.json version>` does not exist,
-   installs dependencies, runs `pnpm cicheck`, builds, packs, verifies the
-   archive and creates the GitHub Release/tag on that exact main commit.
-   It uploads the `.tgz` and its SHA-256 checksum. Versions containing a
-   pre-release suffix (such as `-fork.1`) become pre-releases.
-6. Confirm the release and test a clean OpenCode Git installation pinned to
-   the tag before recommending users switch from local builds.
+This fork uses Semantic Versioning from the first stable release **v0.9.1**.
+Earlier `v0.9.0-fork.1` was a historical pre-release and remains available.
 
-The release workflow requires the repository's GitHub Actions permission to
-create a release and tag (`contents: write`). It does **not** need an npm
-token, third-party publishing credential or secrets.
+- `MAJOR`: breaking configuration/API changes.
+- `MINOR`: backward-compatible features.
+- `PATCH`: compatible fixes and maintenance.
+- A hyphen suffix (`-rc.1`, `-beta.1`) marks a **pre-release**, which never
+  moves `latest`.
+
+The GitHub Releases **Latest** badge and the Git tag **`latest`** are different:
+the workflow sets the badge for the stable release, and moves the Git tag to
+the exact same commit only after successful publication. Published version
+tags (`v0.9.1`, etc.) remain immutable and are never re-used or overwritten.
+`latest` is intentionally mutable; do not use it for reproducible builds.
+
+1. Create a feature branch and PR targeting protected `main`. CI must pass.
+2. Bump `package.json` through the PR. Never reuse an existing release
+   version or reduce the most recent stable version.
+3. Merge after CI passes and run
+   **Actions > GitHub Release > Run workflow** on branch `main`.
+4. The workflow verifies version uniqueness and stable version order, runs
+   `pnpm cicheck`, builds the ESM/CJS bundles, packs the tarball and uploads
+   it plus a SHA-256 checksum.
+5. A stable release is marked GitHub Releases **Latest**, then the movable
+   `refs/tags/latest` is created or updated to the release commit. A
+   pre-release neither gets the badge nor moves the tag.
+6. Validate the GitHub Release, version tag and `latest` Git reference. Run a
+   clean OpenCode installation pinned to `#vX.Y.Z` before recommending the
+   moving alias.
+
+The workflow needs `contents: write` to publish releases and move the tag.
+No npm registry or publishing token is involved. A Git tag ruleset must
+**exclude `latest`** if it prevents tag updates or force pushes.
 
 ## Protect the main branch
 
