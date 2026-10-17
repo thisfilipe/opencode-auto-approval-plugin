@@ -62,6 +62,12 @@ export function conversationFromMessages(input: {
       includeAssistant: input.includeAssistant,
     });
     if (turn) turns.push(turn);
+    // V2 question answers are returned as tool results, not user chat messages.
+    // Only the completed question tool's structured answer metadata is accepted;
+    // assistant prose or other tool output can never authorize an operation.
+    if (input.generation === "v2" && info.type === "assistant" && !excluded(info)) {
+      for (const question of questionAnswers(parts)) turns.push({ role: "user", text: question });
+    }
   }
   const conversation = boundedConversation(turns);
   conversation.incomplete ||= incomplete;
@@ -110,6 +116,36 @@ function humanTurn(input: {
   return text.trim() || role === "user" ? { role, text } : undefined;
 }
 
+/**
+ * Genuine responses to OpenCode's question tool are human decisions, even
+ * though the host stores them in an assistant tool-result part.
+ * Reject free-form model-authored output and cancelled/running questions.
+ */
+function questionAnswers(parts: unknown): string[] {
+  if (!Array.isArray(parts)) return [];
+  const turns: string[] = [];
+  for (const part of parts) {
+    if (!isRecord(part) || part.type !== "tool" || part.name !== "question") continue;
+    const state = part.state;
+    if (!isRecord(state) || state.status !== "completed" || !isRecord(state.metadata)) continue;
+    const questions = isRecord(state.input) ? state.input.questions : undefined;
+    const answers = state.metadata.answers;
+    if (!Array.isArray(questions) || !Array.isArray(answers) || questions.length !== answers.length)
+      continue;
+    for (let i = 0; i < questions.length; i++) {
+      const prompt = questions[i];
+      const answer = answers[i];
+      if (!isRecord(prompt) || typeof prompt.question !== "string" || !Array.isArray(answer))
+        continue;
+      if (answer.length === 0 || answer.some((value) => typeof value !== "string")) continue;
+      const response = answer.map((value: string) => value.trim()).filter(Boolean).join(", ");
+      if (!response) continue;
+      turns.push(`User answered OpenCode question "${prompt.question}": "${response}"`);
+    }
+  }
+  return turns;
+}
+
 /** No cache: re-read the host and reconcile the live prompt before every review. */
 export async function readConversation(input: {
   load(): Promise<ConversationContext>;
@@ -141,12 +177,12 @@ export async function readConversation(input: {
   const latest = input.latest();
   if (
     latest !== undefined &&
-    conversation.turns.findLast((turn) => turn.role === "user")?.text !== latest
+    !conversation.turns.some((turn) => turn.role === "user" && turn.text === latest)
   ) {
     conversation.turns.push({ role: "user", text: latest });
   }
   // Keep the latest intent even if it cannot fit as a whole conversation turn.
-  const userIntent = latest ?? conversation.turns.findLast((turn) => turn.role === "user")?.text;
+  const userIntent = conversation.turns.findLast((turn) => turn.role === "user")?.text ?? latest;
   const bounded = boundedConversation(conversation.turns);
   bounded.incomplete ||= conversation.incomplete;
   if (conversation.historyLimitReached) bounded.historyLimitReached = true;
