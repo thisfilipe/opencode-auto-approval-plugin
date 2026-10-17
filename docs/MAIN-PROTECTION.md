@@ -25,9 +25,15 @@ trigger [CI](../.github/workflows/ci.yml), wait for its completion, then
 return to Settings. The CI workflow deliberately runs even for documentation-
 only PRs, so required checks cannot be silently skipped by path filters.
 
-For release tags, an optional tag ruleset targeting `v*` can block tag
-updates and deletions. **Do not restrict creation of new tags**, because
-`GitHub Release` needs to create a new tag from the validated main commit.
+For immutable version tags, an optional tag ruleset targeting **`v*`**
+may restrict updates and deletions. **Allow new tag creation** so GitHub
+Release can publish a version from the validated `main` commit.
+
+**Do not apply tag-update or force-push restrictions to `latest`.** The release
+workflow deliberately creates or force-updates `refs/tags/latest` after a
+stable release; a ruleset covering `latest` would make the workflow fail
+after publishing the versioned release. Versioned tags and the moving
+`latest` tag require different protection policies.
 
 ## Validate the result
 
