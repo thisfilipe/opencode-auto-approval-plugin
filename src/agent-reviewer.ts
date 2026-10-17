@@ -41,6 +41,7 @@ export class AgentReviewer implements Reviewer {
     });
     const agent = this.#configuration.reviewer.agent;
     const { sessionID } = await this.#client.create({
+      parentID: input.sessionID,
       model: (agent.runtime === "opencode" ? agent.model : undefined) ?? input.model,
     });
     this.#reviewerSessionIDs.add(sessionID);
@@ -55,7 +56,14 @@ export class AgentReviewer implements Reviewer {
       void this.#client.abort({ sessionID }).catch(() => undefined);
       throw error;
     } finally {
-      this.#reviewerSessionIDs.delete(sessionID);
+      try {
+        // Remove temporary OpenCode sessions without masking a review outcome.
+        await this.#client.remove?.({ sessionID });
+      } catch {
+        // Parent linkage still keeps an orphan out of the main session list.
+      } finally {
+        this.#reviewerSessionIDs.delete(sessionID);
+      }
     }
   }
 }
