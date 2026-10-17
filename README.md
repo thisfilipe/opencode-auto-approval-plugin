@@ -18,10 +18,10 @@ instead of tracking a moving branch:
       "options": {
         "mode": "all-tools",
         "conversation": { "enabled": true, "includeAssistant": true },
-        "reviewer": { "backend": "agent" }
-      }
-    }
-  ]
+        "reviewer": { "backend": "agent" },
+      },
+    },
+  ],
 }
 ```
 

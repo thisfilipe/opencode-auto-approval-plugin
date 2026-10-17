@@ -37,10 +37,10 @@ OpenCode v2 accepts a Git repository as an npm-compatible plugin source. Use a
       "package": "github:thisfilipe/opencode-auto-approval-plugin#v0.9.0-fork.1",
       "options": {
         "mode": "all-tools",
-        "conversation": { "enabled": true, "includeAssistant": true }
-      }
-    }
-  ]
+        "conversation": { "enabled": true, "includeAssistant": true },
+      },
+    },
+  ],
 }
 ```
 
@@ -76,7 +76,7 @@ token, third-party publishing credential or secrets.
 
 Repository administration rules must be set in the GitHub Settings UI. See
 [`docs/MAIN-PROTECTION.md`](docs/MAIN-PROTECTION.md) for precise settings.
-This is a *manual administrative prerequisite*, not a rule automatically
+This is a _manual administrative prerequisite_, not a rule automatically
 installed by committing workflow files. Do not mark the branch as protected
 until Settings shows the active rule and a test PR cannot bypass it.
 

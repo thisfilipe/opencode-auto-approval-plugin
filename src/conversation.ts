@@ -138,7 +138,10 @@ function questionAnswers(parts: unknown): string[] {
       if (!isRecord(prompt) || typeof prompt.question !== "string" || !Array.isArray(answer))
         continue;
       if (answer.length === 0 || answer.some((value) => typeof value !== "string")) continue;
-      const response = answer.map((value: string) => value.trim()).filter(Boolean).join(", ");
+      const response = answer
+        .map((value: string) => value.trim())
+        .filter(Boolean)
+        .join(", ");
       if (!response) continue;
       turns.push(`User answered OpenCode question "${prompt.question}": "${response}"`);
     }
