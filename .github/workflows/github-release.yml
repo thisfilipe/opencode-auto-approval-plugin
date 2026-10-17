@@ -1,0 +1,98 @@
+name: GitHub Release
+
+# Releases are initiated deliberately, from the validated main branch only.
+# This workflow builds and tests the selected main commit before creating
+# an immutable version tag and uploading the compiled package to GitHub.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Verify, pack and release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write # GitHub Release and its tag; no npm credentials.
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup mise
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
+        with:
+          experimental: true
+
+      - name: Validate version and availability
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).version")"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid semver for release: $version" >&2
+            exit 1
+          fi
+          tag="v$version"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "GitHub Release $tag already exists; bump package.json instead." >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "Tag $tag already exists; refusing to overwrite it." >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [[ "$version" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Run full quality and security checks
+        run: pnpm cicheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Pack and verify
+        id: pack
+        run: |
+          set -euo pipefail
+          pnpm pack
+          archive="$(find . -maxdepth 1 -name '*.tgz' -type f -print -quit)"
+          test -n "$archive"
+          tar -tzf "$archive" | grep -Fx 'package/dist/index.js'
+          tar -tzf "$archive" | grep -Fx 'package/dist/index.cjs'
+          sha256sum "$archive" > "$archive.sha256"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+          ARCHIVE: ${{ steps.pack.outputs.archive }}
+        run: |
+          set -euo pipefail
+          options=()
+          if [[ "$PRERELEASE" == "true" ]]; then options+=(--prerelease); fi
+          gh release create "$TAG" "$ARCHIVE" "$ARCHIVE.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$TAG" \
+            --generate-notes \
+            "${options[@]}"

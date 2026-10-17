@@ -1,5 +1,42 @@
 # opencode-auto-approval-plugin
 
+> **Maintained fork:** This repository carries additional permission and reviewer-lifecycle
+> fixes on top of [dyoshikawa/opencode-auto-approval-plugin](https://github.com/dyoshikawa/opencode-auto-approval-plugin).
+> See [FORK.md](FORK.md) for the differences and release policy.
+
+### Install the maintained fork from GitHub (OpenCode 2.x)
+
+OpenCode v2 supports npm-compatible Git package references directly: no npm
+registry publication is needed. Pin to a **published GitHub Release tag**
+instead of tracking a moving branch:
+
+```jsonc
+{
+  "plugins": [
+    {
+      "package": "github:thisfilipe/opencode-auto-approval-plugin#v0.9.0-fork.1",
+      "options": {
+        "mode": "all-tools",
+        "conversation": { "enabled": true, "includeAssistant": true },
+        "reviewer": { "backend": "agent" },
+      },
+    },
+  ],
+}
+```
+
+**Do not use this tag until the matching GitHub Release has been created.**
+Keep your existing `options` unchanged when replacing a local plugin path.
+Restart the OpenCode service and verify the loaded plugin with
+`opencode plugin list`. The Git package is built during installation using
+the `prepare` script; the initial download may be relatively large. Node.js
+22+ and the Git installation prerequisites must be available.
+
+To install a different release, change only the version suffix after `#`.
+See [Releases](https://github.com/thisfilipe/opencode-auto-approval-plugin/releases)
+for published versions. Release automation and main-branch protection setup are
+documented in [FORK.md](FORK.md).
+
 An [OpenCode](https://opencode.ai/) plugin that sends tool operations to a read-only AI reviewer
 before automatically approving them.
 

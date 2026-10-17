@@ -29,7 +29,6 @@ function grantKey(call: { sessionID: string; messageID: string; id: string }): s
   return JSON.stringify([call.sessionID, call.messageID, call.id]);
 }
 
-
 /** V2 model references use `id`; the plugin configuration keeps V1's `modelID`. */
 function toModelRef(model: ModelReference): { providerID: string; id: string } {
   return { providerID: model.providerID, id: model.modelID };
