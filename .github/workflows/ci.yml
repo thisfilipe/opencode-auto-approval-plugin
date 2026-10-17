@@ -3,13 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore: &paths-ignore
-      - "docs/**"
-      - "LICENSE"
-      - "README.md"
   pull_request:
     branches: [main]
-    paths-ignore: *paths-ignore
 
 permissions:
   contents: read # Required for checking out code
@@ -61,3 +56,12 @@ jobs:
           test -f dist/index.cjs
           test -f dist/index.d.ts
           test -f dist/index.d.cts
+
+      - name: Smoke-test the Git install package
+        run: |
+          set -euo pipefail
+          pnpm pack
+          archive="$(find . -maxdepth 1 -name '*.tgz' -type f -print -quit)"
+          test -n "$archive"
+          tar -tzf "$archive" | grep -Fx 'package/dist/index.js'
+          tar -tzf "$archive" | grep -Fx 'package/dist/index.cjs'
