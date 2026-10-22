@@ -32,6 +32,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --ignore-scripts
 
+      - name: Format preview for upstream contribution branches
+        run: |
+          pnpm fmt
+          git diff -- src README.md
+
       - name: Check no files generated
         run: |
           if [ -n "$(git status --porcelain)" ]; then
