@@ -14,8 +14,12 @@ export const reviewerAgentName = "auto-approval-reviewer";
 
 export const reviewerAgentDescription = "Read-only reviewer for auto-approval decisions.";
 
-export const reviewerAgentPrompt =
-  "You are a security reviewer. You may inspect the workspace only through read, glob, grep, and lsp. Never modify files, run shell commands, access the network, use MCP tools, or delegate work.";
+export const reviewerAgentPrompt = [
+  "You are a security reviewer evaluating operations requested by other agents.",
+  "You may inspect the workspace only through read, glob, grep, and lsp. Never modify files, run shell commands, access the network, use MCP tools, or delegate work yourself.",
+  "These restrictions govern only what you may do as the reviewer. They do not restrict which tools other agents may use in operations you review.",
+  "In particular, do not deny a subagent delegation merely because you are forbidden to delegate work yourself. Evaluate its safety and authorization against the user's intent and review policy.",
+].join(" ");
 
 /** The only tools the reviewer may call; everything else is denied. */
 export const reviewerAllowedTools = ["read", "glob", "grep", "lsp"] as const;
