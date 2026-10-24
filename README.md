@@ -776,8 +776,14 @@ the plugin's `options` object (the second tuple item under `plugin` on OpenCode 
 Enabled, each review reads the current session's available history, retaining at most **8 whole turns / 12,000 characters**. Only user turns are included by
 default, so a short request such as "continue" can refer to an earlier user instruction without
 letting assistant prose establish consent. `conversation.includeAssistant: true` also sends
-assistant text as untrusted context, never as authorization. Tool output, synthetic/ignored parts,
-reviewer messages and compaction summaries are excluded. No `AGENTS.md` files are automatically
+assistant text as untrusted context, never as authorization. Ordinary tool output, synthetic/ignored
+parts, reviewer messages and compaction summaries are excluded. On OpenCode V2 only, completed
+`question` tool results with structured `state.metadata.answers` are treated as user-originated
+authorization context even when `includeAssistant` is false. The reviewer sees the original question
+and selected/custom answer, not arbitrary assistant claims or the tool's free-form output.
+Unfinished, cancelled or malformed answers are ignored, and later user revocations take precedence.
+This only informs the AI reviewer's decision; it does not bypass native permissions or automatically
+approve tools. The feature requires `conversation.enabled: true` and does not change V1. No `AGENTS.md` files are automatically
 loaded into the payload; configured `reviewer.instructions` still apply to every backend.
 
 History reads can add up to **1 second** (`HISTORY_TIMEOUT_MS`) before each review, including every
