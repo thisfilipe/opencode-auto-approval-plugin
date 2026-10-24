@@ -62,16 +62,7 @@ export function conversationFromMessages(input: {
       includeAssistant: input.includeAssistant,
     });
     if (turn) turns.push(turn);
-    // OpenCode V2 stores answers to the interactive question tool as structured
-    // assistant tool-result metadata, not as ordinary user messages.
-    if (
-      input.generation === "v2" &&
-      info.type === "assistant" &&
-      !excluded(info) &&
-      !(isRecord(info.metadata) && excluded(info.metadata))
-    ) {
-      for (const answer of questionAnswers(parts)) turns.push({ role: "user", text: answer });
-    }
+    turns.push(...questionTurns({ generation: input.generation, info, parts }));
   }
   const conversation = boundedConversation(turns);
   conversation.incomplete ||= incomplete;
@@ -118,6 +109,22 @@ function humanTurn(input: {
         ? textFromParts({ parts: input.parts, skipSyntheticOrIgnored: true })
         : "";
   return text.trim() || role === "user" ? { role, text } : undefined;
+}
+
+/** V2 question answers are stored in assistant tool-result metadata, not user messages. */
+function questionTurns(input: {
+  generation: "v1" | "v2";
+  info: Record<string, unknown>;
+  parts: unknown;
+}): ConversationTurn[] {
+  if (
+    input.generation !== "v2" ||
+    input.info.type !== "assistant" ||
+    excluded(input.info) ||
+    (isRecord(input.info.metadata) && excluded(input.info.metadata))
+  )
+    return [];
+  return questionAnswers(input.parts).map((text) => ({ role: "user", text }));
 }
 
 /**
