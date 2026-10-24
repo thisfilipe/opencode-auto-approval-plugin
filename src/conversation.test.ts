@@ -348,15 +348,17 @@ describe("bounded conversation", () => {
         { type: "user", text: "read src/config.ts only" },
         {
           type: "assistant",
-          content: [{
-            type: "tool",
-            name: "question",
-            state: {
-              status: "completed",
-              input: { questions: [{ question: "May I edit?" }] },
-              metadata: { answers: [["Yes"]] },
+          content: [
+            {
+              type: "tool",
+              name: "question",
+              state: {
+                status: "completed",
+                input: { questions: [{ question: "May I edit?" }] },
+                metadata: { answers: [["Yes"]] },
+              },
             },
-          }],
+          ],
         },
         { type: "user", text: "stop" },
       ],
