@@ -38,6 +38,11 @@ jobs:
       - name: Generate AI tool configurations
         run: pnpm generate
 
+      - name: Preview formatter changes
+        run: |
+          pnpm fmt
+          git diff -- src/conversation.test.ts
+
       - name: Check no files generated
         run: |
           if [ -n "$(git status --porcelain)" ]; then
