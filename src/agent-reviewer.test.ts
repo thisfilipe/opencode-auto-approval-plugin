@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { AgentReviewer } from "./agent-reviewer.js";
+import { AgentReviewer, reviewerAgentPrompt } from "./agent-reviewer.js";
 import { parsePluginConfiguration } from "./config.js";
 import {
   type ReviewSessionClient,
@@ -50,6 +50,15 @@ function clientWithResponse(input: { response: string }): ReviewSessionClient & 
     },
   };
 }
+
+describe("reviewer role boundaries", () => {
+  it("limits the reviewer's own tool use without prohibiting other agents from delegating", () => {
+    expect(reviewerAgentPrompt).toContain("only what you may do as the reviewer");
+    expect(reviewerAgentPrompt).toContain("forbidden to delegate work yourself");
+    expect(reviewerAgentPrompt).toContain("Evaluate its safety and authorization");
+    expect(reviewerAgentPrompt).toContain("Never modify files, run shell commands");
+  });
+});
 
 describe("AgentReviewer", () => {
   it("inherits the main session model when no reviewer model is configured", async () => {
