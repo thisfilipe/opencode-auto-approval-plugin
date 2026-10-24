@@ -8,7 +8,7 @@ on:
       - "LICENSE"
       - "README.md"
   pull_request:
-    branches: [main]
+    branches: [main, review/question-v2-ci-base]
     paths-ignore: *paths-ignore
 
 permissions:
