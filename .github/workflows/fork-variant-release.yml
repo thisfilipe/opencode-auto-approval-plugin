@@ -1,0 +1,126 @@
+name: Fork Release - Model Variants
+
+on:
+  push:
+    branches:
+      - release/v0.13.4-model-variant
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-variant-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish fork snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup mise
+        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          experimental: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Generate AI tool configurations
+        run: pnpm generate
+
+      - name: Check generated files
+        run: test -z "$(git status --porcelain)"
+
+      - name: Run full CI checks
+        run: pnpm cicheck
+
+      - name: Compile the distribution
+        run: pnpm build
+
+      - name: Verify compiled outputs
+        run: |
+          test -f dist/index.js
+          test -f dist/index.cjs
+          test -f dist/index.d.ts
+          test -f dist/index.d.cts
+
+      - name: Prepare an installable release manifest
+        run: |
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const path = "package.json";
+          const pkg = JSON.parse(fs.readFileSync(path, "utf8"));
+          pkg.version = "0.13.4";
+          pkg.homepage = "https://github.com/thisfilipe/opencode-auto-approval-plugin";
+          pkg.bugs.url = "https://github.com/thisfilipe/opencode-auto-approval-plugin/issues";
+          pkg.repository.url = "https://github.com/thisfilipe/opencode-auto-approval-plugin.git";
+          for (const key of ["build", "prepare", "prepublishOnly", "prepack", "preinstall", "install", "postinstall"]) {
+            delete pkg.scripts[key];
+          }
+          fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");
+          NODE
+          node - <<'NODE'
+          const scripts = require("./package.json").scripts;
+          for (const key of ["build", "prepare", "prepack", "preinstall", "install", "postinstall"]) {
+            if (Object.hasOwn(scripts, key)) throw new Error("Unexpected install script: " + key);
+          }
+          NODE
+
+      - name: Pack the compiled Git dependency
+        run: |
+          set -euo pipefail
+          pnpm pack
+          archive="$(find . -maxdepth 1 -name '*.tgz' -type f -print -quit)"
+          test -n "$archive"
+          tar -tzf "$archive" | grep -Fx 'package/dist/index.js'
+          tar -tzf "$archive" | grep -Fx 'package/dist/index.cjs'
+          sha256sum "$archive" > "$archive.sha256"
+
+      - name: Commit prebuilt files and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="v0.13.4"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists: $tag" >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "Tag already exists: $tag" >&2
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git add -f dist/
+          git commit -m "build(release): ship upstream 0.13.3 with model variant fix"
+          test "$(git rev-parse HEAD^)" = "$GITHUB_SHA"
+          git tag "$tag"
+          gh auth setup-git
+          git push origin "refs/tags/$tag"
+          archive="$(find . -maxdepth 1 -name '*.tgz' -type f -print -quit)"
+          gh release create "$tag" "$archive" "$archive.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$tag (fork)" \
+            --notes "Based on upstream v0.13.3 plus PR #101 (OpenCode V2 reviewer model variants). Contains precompiled ESM/CJS artifacts for direct Git installation." \
+            --latest
+          release_sha="$(git rev-parse HEAD)"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/latest" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/latest" \
+              -f sha="$release_sha" -F force=true >/dev/null
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/latest" -f sha="$release_sha" >/dev/null
+          fi
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/latest" --jq '.object.sha')"
+          test "$actual" = "$release_sha"
+          echo "Published $tag and latest at $release_sha"
