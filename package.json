@@ -1,6 +1,6 @@
 {
   "name": "opencode-auto-approval-plugin",
-  "version": "0.13.3",
+  "version": "0.13.4",
   "description": "opencode plugin that auto-approves tool permission requests based on configurable rules",
   "keywords": [
     "opencode",
@@ -10,13 +10,13 @@
     "auto-approval",
     "typescript"
   ],
-  "homepage": "https://github.com/dyoshikawa/opencode-auto-approval-plugin#readme",
+  "homepage": "https://github.com/thisfilipe/opencode-auto-approval-plugin",
   "bugs": {
-    "url": "https://github.com/dyoshikawa/opencode-auto-approval-plugin/issues"
+    "url": "https://github.com/thisfilipe/opencode-auto-approval-plugin/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/dyoshikawa/opencode-auto-approval-plugin.git"
+    "url": "https://github.com/thisfilipe/opencode-auto-approval-plugin.git"
   },
   "license": "MIT",
   "author": "dyoshikawa",
@@ -43,7 +43,6 @@
     "dist"
   ],
   "scripts": {
-    "build": "vp pack",
     "check": "vp check --deny-warnings && pnpm run typecheck",
     "cicheck": "pnpm run cicheck:code && pnpm run cicheck:content",
     "cicheck:code": "pnpm run check && pnpm run test",
@@ -56,8 +55,6 @@
     "knip": "knip",
     "oxlint": "vp lint --max-warnings 0",
     "oxlint:fix": "vp lint --fix --max-warnings 0",
-    "prepare": "node scripts/install-git-hooks.mjs && pnpm generate",
-    "prepublishOnly": "pnpm build",
     "secretlint": "secretlint --secretlintignore .gitignore \"**/*\"",
     "sort": "sort-package-json",
     "test": "vp test run --silent=true",
