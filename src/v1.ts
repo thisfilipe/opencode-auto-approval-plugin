@@ -139,6 +139,12 @@ function rejectV2OnlyOptions(configuration: PluginConfiguration): void {
   ) {
     throw invalidOptions("reviewer.agent.cleanupSessions needs OpenCode 2.x.");
   }
+  if (
+    configuration.reviewer.agent.runtime === "opencode" &&
+    configuration.reviewer.agent.linkSessions === false
+  ) {
+    throw invalidOptions("reviewer.agent.linkSessions: false needs OpenCode 2.x.");
+  }
 }
 
 export function createV1Plugin(dependencies: PluginDependencies): Plugin {

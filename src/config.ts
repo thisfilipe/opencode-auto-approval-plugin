@@ -107,6 +107,8 @@ type AgentConfiguration = {
       model?: ModelReference;
       /** Remove completed reviewer sessions only when explicitly enabled. */
       cleanupSessions: boolean;
+      /** Link reviewer sessions to their requester; false avoids parent subagent reports on V2. */
+      linkSessions?: boolean;
     }
   | {
       runtime: SdkRuntime;
@@ -228,6 +230,7 @@ const agentOptionsSchema = z.object({
   model: z.optional(z.union([modelReferenceSchema, z.string().check(z.minLength(1))])),
   maxInputBytes: z.optional(z.int().check(z.gte(1_000), z.lte(4_000_000))),
   cleanupSessions: z.optional(z.boolean()),
+  linkSessions: z.optional(z.boolean()),
   claudeAgentSdk: z.optional(sdkOptionsSchema),
   codexSdk: z.optional(sdkOptionsSchema),
 });
@@ -610,6 +613,9 @@ function agentConfiguration(reviewer: ReviewerOptions | undefined): AgentConfigu
         'reviewer.agent.cleanupSessions needs reviewer.agent.runtime "opencode".',
       );
     }
+    if (agent.linkSessions !== undefined) {
+      throw invalidOptions('reviewer.agent.linkSessions needs reviewer.agent.runtime "opencode".');
+    }
     return sdkAgentConfiguration({
       runtime,
       model,
@@ -626,6 +632,7 @@ function agentConfiguration(reviewer: ReviewerOptions | undefined): AgentConfigu
     runtime: "opencode",
     maxInputBytes,
     cleanupSessions: agent.cleanupSessions ?? false,
+    ...(agent.linkSessions === undefined ? {} : { linkSessions: agent.linkSessions }),
     ...(model === undefined ? {} : { model }),
   };
 }

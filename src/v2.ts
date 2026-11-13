@@ -96,13 +96,23 @@ const reviewerPermissions = [
   ...reviewerEnvReadRules.map(([resource, effect]) => ({ action: "read", resource, effect })),
 ];
 
-export function createV2SessionClient(context: Context): ReviewSessionClient {
+export function createV2SessionClient(context: Context, linkSessions = true): ReviewSessionClient {
   return {
     create: async ({ model, parentID }) => {
+      // OpenCode 2.3 reports every linked child's idle transition to its parent,
+      // including reviewer sessions managed and awaited by this plugin.
+      // Detached reviewers keep the originating session's location and metadata
+      // but do not inject redundant <subagent> messages into its context.
+      const source =
+        parentID && !linkSessions ? await context.session.get({ sessionID: parentID }) : undefined;
       const session = await context.session.create({
         title: "Auto-approval review",
         agent: reviewerAgentName,
-        ...(parentID ? { parentID } : {}),
+        ...(source
+          ? { location: source.location, ...(source.metadata ? { metadata: source.metadata } : {}) }
+          : parentID
+            ? { parentID }
+            : {}),
         // Repeated on the session so the agent staying read-only does not
         // depend on nothing else redefining it.
         permissions: [...reviewerPermissions],
@@ -135,7 +145,11 @@ export function createV2Plugin(dependencies: PluginDependencies): Plugin.Plugin 
     setup: async (context) => {
       const configuration = parsePluginConfiguration({ options: context.options });
       const reviewer = dependencies.createReviewer({
-        client: createV2SessionClient(context),
+        client: createV2SessionClient(
+          context,
+          configuration.reviewer.agent.runtime !== "opencode" ||
+            configuration.reviewer.agent.linkSessions !== false,
+        ),
         configuration,
         directory: context.location.directory,
       });

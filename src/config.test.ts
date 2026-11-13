@@ -191,6 +191,27 @@ describe("parsePluginConfiguration", () => {
     ).toMatchObject({ runtime: "opencode", cleanupSessions: false });
   });
 
+  it("allows detached reviewer sessions only with the OpenCode agent runtime", () => {
+    const agent = parsePluginConfiguration({
+      options: { reviewer: { agent: { linkSessions: false, cleanupSessions: true } } },
+    }).reviewer.agent;
+    expect(agent).toMatchObject({
+      runtime: "opencode",
+      linkSessions: false,
+      cleanupSessions: true,
+    });
+    expect(parsePluginConfiguration({ options: {} }).reviewer.agent).not.toHaveProperty(
+      "linkSessions",
+    );
+    for (const linkSessions of [true, false]) {
+      expect(() =>
+        parsePluginConfiguration({
+          options: { reviewer: { agent: { runtime: "codex-sdk", linkSessions } } },
+        }),
+      ).toThrow('reviewer.agent.linkSessions needs reviewer.agent.runtime "opencode".');
+    }
+  });
+
   describe("agent runtime", () => {
     it("runs the agent reviewer on the Claude Agent SDK with a Claude model name", () => {
       expect(

@@ -53,6 +53,14 @@ describe("V1 plugin (opencode 1.x)", () => {
     ).resolves.toBeDefined();
   });
 
+  it("rejects detached reviewer sessions, which V1 cannot configure", async () => {
+    const { context } = createContext();
+    const { plugin } = createPlugin({ verdict: "allow" });
+    await expect(
+      plugin(context as never, { reviewer: { agent: { linkSessions: false } } }),
+    ).rejects.toThrow("reviewer.agent.linkSessions: false needs OpenCode 2.x.");
+  });
+
   it("reads bounded history for continue and excludes assistant text by default", async () => {
     const { context, messages } = createContext();
     messages.mockResolvedValue({

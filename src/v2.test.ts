@@ -11,7 +11,7 @@ function createContext(input: { options?: Record<string, unknown> } = {}) {
   const registration = { dispose: async () => undefined };
   const agents = new Map<string, Record<string, unknown>>();
   const session = {
-    create: vi.fn(async () => ({ id: "review-session" })),
+    create: vi.fn(async (_options: Record<string, unknown>) => ({ id: "review-session" })),
     prompt: vi.fn(async () => ({ id: "inbox-1" })),
     wait: vi.fn(async () => undefined),
     context: vi.fn(async (): Promise<Record<string, unknown>[]> => [
@@ -845,6 +845,49 @@ describe("V2 plugin (opencode 2.x)", () => {
 });
 
 describe("V2 session client", () => {
+  it("keeps reviewer sessions linked by default", async () => {
+    const { context, session } = createContext();
+    await createV2SessionClient(context as never).create({ parentID: "session-1" });
+
+    expect(session.create).toHaveBeenCalledWith(expect.objectContaining({ parentID: "session-1" }));
+    expect(session.get).not.toHaveBeenCalled();
+  });
+
+  it("uses the requester's location and metadata without linking a detached reviewer", async () => {
+    const { context, session } = createContext();
+    session.get.mockImplementationOnce(async () => ({
+      id: "session-1",
+      model: { providerID: "openai", id: "gpt-5.6" },
+      location: { directory: "/workspace/project" },
+      metadata: { repository: "sample" },
+    }));
+    const client = createV2SessionClient(context as never, false);
+
+    const created = await client.create({ parentID: "session-1" });
+    const verdict = await client.prompt({ sessionID: created.sessionID, text: "review this" });
+
+    expect(session.get).toHaveBeenCalledWith({ sessionID: "session-1" });
+    expect(session.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        location: { directory: "/workspace/project" },
+        metadata: { repository: "sample" },
+      }),
+    );
+    expect(session.create.mock.calls[0]?.[0]).not.toHaveProperty("parentID");
+    expect(session.wait).toHaveBeenCalledWith({ sessionID: "review-session" });
+    expect(verdict).toBe('{"verdict":"allow","reason":"safe"}');
+  });
+
+  it("fails closed if the requester cannot be found for a detached reviewer", async () => {
+    const { context, session } = createContext();
+    session.get.mockRejectedValueOnce(new Error("Requester session unavailable"));
+
+    await expect(
+      createV2SessionClient(context as never, false).create({ parentID: "missing-session" }),
+    ).rejects.toThrow("Requester session unavailable");
+    expect(session.create).not.toHaveBeenCalled();
+  });
+
   it("creates a reviewer session, waits for the reply, and reads the assistant text", async () => {
     const { context, session } = createContext();
     const client = createV2SessionClient(context as never);
